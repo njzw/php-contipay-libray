@@ -168,6 +168,8 @@ class PayloadGenerator
                 "currencyCode" => $this->currency,
                 "description" => $this->description,
                 "webhookUrl" => $this->webhookUrl,
+                'successUrl' => $this->successUrl,
+                "cancelUrl" => $this->cancelUrl,
                 "merchantId" => $this->merchantCode,
                 "reference" => $this->ref
             ],
