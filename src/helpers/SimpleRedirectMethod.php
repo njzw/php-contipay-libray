@@ -2,17 +2,22 @@
 
 namespace Contipay\Helpers;
 
-use Contipay\Util\Reference;
+use Contipay\Helpers\Payload\PayloadGenerator;
 
+/**
+ * SimpleRedirectMethod (refactored to use PayloadGenerator).
+ *
+ * @deprecated Use PayloadGenerator instead. This class is kept for backward compatibility.
+ */
 class SimpleRedirectMethod
 {
-    protected string $successUrl;
-    protected string $cancelUrl;
-    protected string $webhookUrl;
-    protected int $merchantId;
+    /**
+     * @var PayloadGenerator
+     */
+    protected PayloadGenerator $payloadGenerator;
 
     /**
-     * Constructor for initializing class properties.
+     * Constructor for initializing PayloadGenerator.
      *
      * @param int    $merchantId  The merchant ID.
      * @param string $webhookUrl  The URL for webhook notifications.
@@ -21,25 +26,11 @@ class SimpleRedirectMethod
      */
     public function __construct(int $merchantId, string $webhookUrl, string $successUrl, string $cancelUrl)
     {
-        $this->webhookUrl = $webhookUrl;
-        $this->successUrl = $successUrl;
-        $this->cancelUrl = $cancelUrl;
-        $this->merchantId = $merchantId;
+        $this->payloadGenerator = new PayloadGenerator($merchantId, $webhookUrl, $successUrl, $cancelUrl);
     }
 
     /**
-     * Prepare payment payload for transaction.
-     *
-     * @param float       $amount      The amount of the transaction.
-     * @param string      $account     The account name or identifier.
-     * @param string      $currency    The currency code (default: 'USD').
-     * @param string|null $ref         The reference for the transaction (optional).
-     * @param string      $description The description for the transaction (optional).
-     * @param string      $cell        The cell number (optional).
-     * @param bool        $isCod       Indicates if the transaction is Cash on Delivery (optional).
-     * @param bool        $isCoc       Indicates if the transaction is Cash on Collection (optional).
-     *
-     * @return array The prepared payment payload.
+     * Proxy to PayloadGenerator::simpleRedirectPayload
      */
     public function preparePayload(
         float $amount,
@@ -51,36 +42,6 @@ class SimpleRedirectMethod
         bool $isCod = false,
         bool $isCoc = false
     ): array {
-        // If $cell is not provided, use $account
-        $cell = ($cell === '') ? $account : $cell;
-
-        // Generate reference if not provided
-        $ref = ($ref === null) ? "V-" . (new Reference())->generate(8) : $ref;
-
-        // Default description if not provided
-        $description = ($description === '') ? 'Payment with ref:' . $ref : $description;
-
-        // Construct and return payment payload
-        return [
-            "reference" => $ref,
-            'cod' => $isCod,
-            'coc' => $isCoc,
-            "description" => $description,
-            "amount" => $amount,
-            'customer' => [
-                'firstName' => $account,
-                'surname' => $account,
-                'middleName' => '-',
-                "nationalId" => '-',
-                'email' => "$account@contipay.co.zw",
-                'cell' => $cell,
-                'countryCode' => 'zw',
-            ],
-            "currencyCode" => $currency,
-            "merchantId" => $this->merchantId,
-            "webhookUrl" => $this->webhookUrl,
-            'successUrl' => $this->successUrl,
-            'cancelUrl' => $this->cancelUrl,
-        ];
+        return $this->payloadGenerator->simpleRedirectPayload($amount, $account, $currency, $ref, $description, $cell, $isCod, $isCoc);
     }
 }

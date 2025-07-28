@@ -6,7 +6,7 @@ use Contipay\Util\Reference;
 class PayloadGenerator
 {
     private const DEFAULT_COUNTRY_CODE = 'ZW';
-    private const DEFAULT_CURRENCY = 'ZWL';
+    private const DEFAULT_CURRENCY = 'ZWG';
     private const DEFAULT_MIDDLE_NAME = '-';
     private const DEFAULT_NATIONAL_ID = '-';
     private const DEFAULT_ACCOUNT_NAME = '-';
@@ -95,7 +95,7 @@ class PayloadGenerator
      * Set up transaction details.
      *
      * @param float  $amount                The amount of the transaction.
-     * @param string $currency              The currency code (default: 'ZWL').
+     * @param string $currency              The currency code (default: 'ZWG').
      * @param string $transactionRef        The reference for the transaction (optional).
      * @param string $transactionDescription The description for the transaction (optional).
      *
@@ -223,7 +223,7 @@ class PayloadGenerator
      *
      * @param float       $amount      The amount of the transaction.
      * @param string      $account     The account name or identifier.
-     * @param string      $currency    The currency code (default: 'ZWL').
+     * @param string      $currency    The currency code (default: 'ZWG').
      * @param string|null $ref         The reference for the transaction (optional).
      * @param string      $description The description for the transaction (optional).
      * @param string      $cell        The cell number (optional).

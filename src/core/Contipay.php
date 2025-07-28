@@ -9,17 +9,53 @@ use Nigel\Utils\Core\Checksums\ContipayChecksum;
 
 class Contipay
 {
+    /**
+     * @var string API token for authentication
+     */
     protected string $token;
+    /**
+     * @var string API secret for authentication
+     */
     protected string $secret;
+    /**
+     * @var string Current base URL (UAT or Live)
+     */
     protected string $url;
-    protected string $paymentMethod = 'direct';
+    /**
+     * @var string HTTP method for payment requests (POST or PUT)
+     */
+    protected string $paymentMethod = 'POST';
+    /**
+     * @var string Endpoint for acquiring payments
+     */
     protected string $acquireUrl = 'acquire/payment';
+    /**
+     * @var string Endpoint for disbursing payments
+     */
     protected string $disburseUrl = 'disburse/payment';
+    /**
+     * @var string UAT (test) API URL
+     */
     protected string $uatURL = 'https://api2-test.contipay.co.zw';
+    /**
+     * @var string Live API URL
+     */
     protected string $liveURL = 'https://api-v2.contipay.co.zw';
+    /**
+     * @var Client|null Guzzle HTTP client instance
+     */
     protected ?Client $client = null;
+    /**
+     * @var string Last generated checksum
+     */
     protected string $checksum;
 
+    /**
+     * Contipay constructor.
+     *
+     * @param string $token  API token
+     * @param string $secret API secret
+     */
     public function __construct(string $token, string $secret)
     {
         $this->token = $token;
@@ -27,23 +63,23 @@ class Contipay
     }
 
     /**
-     * Set ContiPay environment mode.
+     * Set ContiPay environment mode (UAT or Live).
      *
-     * @param string $mode
+     * @param string $mode  'DEV' for UAT, 'LIVE' for production
      * @return self
      */
-    public function setAppMode(string $mode = "DEV"): self
+    public function setAppMode(string $mode = 'DEV'): self
     {
-        $this->url = ($mode == 'DEV') ? $this->uatURL : $this->liveURL;
+        $this->url = (strtoupper($mode) === 'DEV') ? $this->uatURL : $this->liveURL;
         $this->initHttpClient();
         return $this;
     }
 
     /**
-     * Update URLs from the defaults.
+     * Update the UAT and Live API URLs.
      *
-     * @param string $devURL
-     * @param string $liveURL
+     * @param string $devURL  Custom UAT URL
+     * @param string $liveURL Custom Live URL
      * @return self
      */
     public function updateURL(string $devURL, string $liveURL): self
@@ -54,22 +90,22 @@ class Contipay
     }
 
     /**
-     * Set payment method. By default it's direct.
+     * Set HTTP method for payment requests.
      *
-     * @param string $method
+     * @param string $method  'direct' for POST, anything else for PUT
      * @return self
      */
     public function setPaymentMethod(string $method = 'direct'): self
     {
-        $this->paymentMethod = ($method == 'direct') ? "POST" : "PUT";
+        $this->paymentMethod = (strtolower($method) === 'direct') ? 'POST' : 'PUT';
         return $this;
     }
 
     /**
-     * Process payment.
+     * Process a payment request.
      *
-     * @param array $payload
-     * @return string JSON response
+     * @param array $payload Payment data
+     * @return string JSON response from API
      */
     public function process(array $payload): string
     {
@@ -82,27 +118,26 @@ class Contipay
                 ],
                 'json' => $payload
             ]);
-
             return $response->getBody()->getContents();
         } catch (GuzzleException $e) {
-            return json_encode(['status' => 'Error', 'message' => $e->getMessage()]);
+            return json_encode([
+                'status' => 'Error',
+                'message' => $e->getMessage(),
+            ]);
         }
     }
 
     /**
-     * Disburse payment.
+     * Disburse (send) a payment with checksum.
      *
-     * @param array $payload
-     * @param string $privateKey
-     * @return string JSON response
+     * @param array $payload    Payment data
+     * @param string $privateKey PEM-encoded private key for checksum
+     * @return string JSON response from API
      */
-    function disburse(array $payload, string $privateKey)
+    public function disburse(array $payload, string $privateKey): string
     {
-
         try {
-
             $this->generateChecksum($payload, $privateKey);
-
             $response = $this->client->request($this->paymentMethod, "/{$this->disburseUrl}", [
                 'auth' => [$this->token, $this->secret],
                 'headers' => [
@@ -112,45 +147,42 @@ class Contipay
                 ],
                 'json' => $payload
             ]);
-
             return $response->getBody()->getContents();
         } catch (GuzzleException $e) {
-            return json_encode(['status' => 'Error', 'message' => $e->getMessage()]);
+            return json_encode([
+                'status' => 'Error',
+                'message' => $e->getMessage(),
+            ]);
         }
     }
 
     /**
      * Generate checksum for the given payload using the provided private key.
      *
-     * @param array  $payload    The payload containing transaction and account details.
-     * @param string $privateKey The private key used for generating the checksum.
-     *
-     * @return self Returns an instance of this class with the generated checksum.
-     * @throws Exception If the private key retrieval fails.
+     * @param array $payload    Payment data (must include transaction and account details)
+     * @param string $privateKey PEM-encoded private key
+     * @return self
+     * @throws Exception If private key retrieval fails
      */
-    function generateChecksum(array $payload, string $privateKey): self
+    public function generateChecksum(array $payload, string $privateKey): self
     {
-        $reference = $payload['transaction']['reference'];
-        $merchantId = $payload['transaction']['merchantId'];
-        $accountNumber = $payload['accountDetails']['accountNumber'];
-        $amount = $payload['transaction']['amount'];
-
+        $reference = $payload['transaction']['reference'] ?? '';
+        $merchantId = $payload['transaction']['merchantId'] ?? '';
+        $accountNumber = $payload['accountDetails']['accountNumber'] ?? '';
+        $amount = $payload['transaction']['amount'] ?? '';
 
         $dataToEncrypt = $this->token . $reference . $merchantId . $accountNumber . $amount;
-
         $privateKeyResource = openssl_get_privatekey($privateKey, "");
         if (!$privateKeyResource) {
             throw new Exception("Failed to retrieve private key");
         }
-
         $this->checksum = (new ContipayChecksum())->generateChecksum($dataToEncrypt, true, $privateKeyResource);
-
         return $this;
     }
 
 
     /**
-     * Setup HTTP client.
+     * Initialize the Guzzle HTTP client with the current base URL.
      *
      * @return void
      */

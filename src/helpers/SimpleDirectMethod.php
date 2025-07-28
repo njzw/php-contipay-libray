@@ -2,19 +2,22 @@
 
 namespace Contipay\Helpers;
 
-use Contipay\Util\Reference;
+use Contipay\Helpers\Payload\PayloadGenerator;
 
+/**
+ * SimpleDirectMethod (refactored to use PayloadGenerator).
+ *
+ * @deprecated Use PayloadGenerator instead. This class is kept for backward compatibility.
+ */
 class SimpleDirectMethod
 {
-    protected string $successUrl;
-    protected string $cancelUrl;
-    protected string $webhookUrl;
-    protected string $providerName;
-    protected string $providerCode;
-    protected int $merchantId;
+    /**
+     * @var PayloadGenerator
+     */
+    protected PayloadGenerator $payloadGenerator;
 
     /**
-     * Constructor for initializing class properties.
+     * Constructor for initializing PayloadGenerator.
      *
      * @param int    $merchantId  The merchant ID.
      * @param string $webhookUrl  The URL for webhook notifications.
@@ -23,87 +26,29 @@ class SimpleDirectMethod
      */
     public function __construct(int $merchantId, string $webhookUrl, string $successUrl = '', string $cancelUrl = '')
     {
-        $this->webhookUrl = $webhookUrl;
-        $this->successUrl = $successUrl;
-        $this->cancelUrl = $cancelUrl;
-        $this->merchantId = $merchantId;
+        $this->payloadGenerator = new PayloadGenerator($merchantId, $webhookUrl, $successUrl, $cancelUrl);
     }
 
     /**
-     * Set up the provider name and code.
-     *
-     * @param string $providerName The name of the payment provider (default: 'Ecocash').
-     * @param string $providerCode The code of the payment provider (default: 'EC').
-     *
-     * @return $this
+     * Proxy to PayloadGenerator::setUpProviders
      */
     public function setUpProvider(string $providerName = 'Ecocash', string $providerCode = 'EC'): self
     {
-        $this->providerName = $providerName;
-        $this->providerCode = $providerCode;
-
+        $this->payloadGenerator->setUpProviders($providerName, $providerCode);
         return $this;
     }
 
     /**
-     * Prepare payment payload for a transaction.
-     *
-     * @param float       $amount      The amount of the transaction.
-     * @param string      $account     The account name or identifier.
-     * @param string      $currency    The currency code (default: 'ZWL').
-     * @param string|null $ref         The reference for the transaction (optional).
-     * @param string      $description The description for the transaction (optional).
-     * @param string      $cell        The cell number (optional).
-     *
-     * @return array The prepared payment payload.
+     * Proxy to PayloadGenerator::simpleDirectPayload
      */
     public function preparePayload(
         float $amount,
         string $account,
-        string $currency = 'ZWL',
+        string $currency = 'ZWG',
         ?string $ref = null,
         string $description = "",
         string $cell = ""
     ): array {
-        // If $cell is not provided, use $account
-        $cell = ($cell === '') ? $account : $cell;
-
-        // Generate reference if not provided
-        $ref = ($ref === null) ? "V-" . (new Reference())->generate(8) : $ref;
-
-        // Default description if not provided
-        $description = ($description === '') ? 'Payment with ref:' . $ref : $description;
-
-        // Construct and return payment payload
-        return [
-            "customer" => [
-                "nationalId" => "-",
-                "firstName" => $account,
-                "middleName" => "-",
-                "surname" => '-',
-                "email" => "$account@contipay.co.zw",
-                "cell" => $cell,
-                "countryCode" => "ZW"
-            ],
-            "transaction" => [
-                "providerCode" => $this->providerCode,
-                "providerName" => $this->providerName,
-                "amount" => $amount,
-                "currencyCode" => $currency,
-                "description" => $description,
-                "webhookUrl" => $this->webhookUrl,
-                "merchantId" => $this->merchantId,
-                "reference" => $ref
-            ],
-            "accountDetails" => [
-                "accountNumber" => $account,
-                "accountName" => '-',
-                "accountExtra" => [
-                    "smsNumber" => $cell,
-                    "expiry" => "122021",
-                    "cvv" => "003"
-                ]
-            ]
-        ];
+        return $this->payloadGenerator->simpleDirectPayload($amount, $account, $currency, $ref, $description, $cell);
     }
 }
