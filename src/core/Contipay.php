@@ -36,11 +36,11 @@ class Contipay
     /**
      * @var string UAT (test) API URL
      */
-    protected string $uatURL = 'https://api2-test.contipay.co.zw';
+    protected string $uatURL = 'https://api-uat.contipay.net';
     /**
      * @var string Live API URL
      */
-    protected string $liveURL = 'https://api-v2.contipay.co.zw';
+    protected string $liveURL = 'https://api.contipay.net';
     /**
      * @var Client|null Guzzle HTTP client instance
      */
